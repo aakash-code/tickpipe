@@ -1,0 +1,133 @@
+# One example per kind of tick store. Copy the block you need into config.toml
+# as [sources.quotes] or [sources.trades]. The two streams may use different kinds.
+#
+# Common keys, valid for every kind:
+#
+#   columns   = { ts = "exch_time", ticker = "sym", price = "px", qty = "size" }
+#               Your column names, when they differ from the pipeline's
+#               (ts, ticker, bid, ask for quotes; ts, ticker, price, qty for trades;
+#               seq is optional and is numbered for you when absent).
+#               Matching ignores case, so TS and ts are the same column.
+#   ts_unit   = "ms"        Only for integer timestamps: ns (default), us, ms or s.
+#   start     = "2026-04-29 13:55:00"
+#   end       = "2026-04-29 14:10:00"
+#               Optional time bounds, start inclusive and end exclusive.
+#
+# Rows must arrive ordered by time. Database kinds take a `query`, and the query
+# does the ordering. Any value may refer to an environment variable as ${NAME},
+# which keeps passwords out of this file.
+#
+# Install the driver for a kind with its extra, for example:
+#   uv sync --extra snowflake --extra clickhouse
+
+# ---- Parquet on disk -----------------------------------------------------------
+[sources.trades_parquet]
+kind = "parquet"
+path = "data/trades.parquet"          # a file, a glob such as "ticks/2026-04-*/trades-*.parquet", or a list
+# sort = true                         # only if the files are not already in time order
+
+# ---- Parquet on S3 (also gs://, az://, abfss://, https://) -----------------------
+[sources.trades_s3]
+kind = "parquet"
+path = "s3://my-bucket/ticks/trades/date=2026-04-29/*.parquet"
+[sources.trades_s3.storage_options]   # omit this table to use the usual AWS environment or profile
+aws_region = "ap-south-1"
+aws_access_key_id = "${AWS_ACCESS_KEY_ID}"
+aws_secret_access_key = "${AWS_SECRET_ACCESS_KEY}"
+# aws_endpoint_url = "http://127.0.0.1:9000"   # MinIO and other S3-compatible stores
+# aws_allow_http = "true"
+
+# ---- Snowflake --------------------------------------------------------------------
+[sources.trades_snowflake]
+kind = "snowflake"
+query = """
+select ts, ticker, price, qty
+from ticks.public.trades
+where trade_date = '2026-04-29'
+order by ts
+"""
+[sources.trades_snowflake.connect]    # passed to snowflake.connector.connect
+account = "myorg-myaccount"
+user = "reader"
+password = "${SNOWFLAKE_PASSWORD}"
+warehouse = "RESEARCH_WH"
+database = "TICKS"
+schema = "PUBLIC"
+
+# ---- QuestDB ------------------------------------------------------------------------
+[sources.trades_questdb]
+kind = "questdb"
+query = "select * from trades where ts in '2026-04-29' order by ts"
+[sources.trades_questdb.connect]      # defaults: localhost, 8812, admin, quest, qdb
+host = "localhost"
+port = 8812
+
+# ---- ClickHouse ---------------------------------------------------------------------
+[sources.trades_clickhouse]
+kind = "clickhouse"
+query = "select ts, ticker, price, qty from ticks.trades where toDate(ts) = '2026-04-29' order by ts"
+[sources.trades_clickhouse.connect]   # passed to clickhouse_connect.get_client
+host = "localhost"
+port = 8123
+username = "default"
+password = "${CLICKHOUSE_PASSWORD}"
+
+# ---- PostgreSQL ---------------------------------------------------------------------
+[sources.trades_postgres]
+kind = "postgres"
+query = "select ts, ticker, price, qty from trades where ts >= '2026-04-29' and ts < '2026-04-30' order by ts"
+[sources.trades_postgres.connect]     # passed to psycopg.connect
+host = "localhost"
+port = 5432
+user = "reader"
+password = "${PGPASSWORD}"
+dbname = "ticks"
+
+# ---- SQL Server ---------------------------------------------------------------------
+[sources.trades_sqlserver]
+kind = "sqlserver"
+query = "select ts, ticker, price, qty from dbo.trades where ts >= '2026-04-29' and ts < '2026-04-30' order by ts"
+[sources.trades_sqlserver.connect]
+host = "localhost"
+port = 1433
+database = "ticks"
+user = "reader"                        # leave user out to use Windows authentication
+password = "${MSSQL_PASSWORD}"
+driver = "ODBC Driver 18 for SQL Server"
+TrustServerCertificate = "yes"         # any further key goes into the ODBC connection string as is
+
+# ---- kdb+ ---------------------------------------------------------------------------
+[sources.trades_kdb]
+kind = "kdb"
+# Return a full timestamp column. A bare time or timespan has no date and is refused.
+query = "select ts:date+time, ticker:sym, price, qty:size from trade where date=2026.04.29"
+[sources.trades_kdb.connect]          # passed to pykx.SyncQConnection
+host = "localhost"
+port = 5010
+# username = "reader"
+# password = "${KDB_PASSWORD}"
+
+# ---- DuckDB -------------------------------------------------------------------------
+[sources.trades_duckdb]
+kind = "duckdb"
+database = "ticks.duckdb"             # leave out to use DuckDB in memory as a query layer
+query = "select * from trades order by ts"
+
+# ---- SQLite -------------------------------------------------------------------------
+[sources.trades_sqlite]
+kind = "sqlite"
+database = "ticks.sqlite"
+query = "select * from trades order by ts"
+ts_unit = "ms"                        # SQLite has no timestamp type; say what the integers mean
+
+# ---- Anything with a SQLAlchemy URL (MySQL, Oracle, Redshift, ...) ---------------------
+[sources.trades_sql]
+kind = "sql"
+url = "mysql+pymysql://reader:${MYSQL_PASSWORD}@localhost/ticks"
+query = "select ts, ticker, price, qty from trades order by ts"
+
+# ---- Anything with an ODBC driver ------------------------------------------------------
+[sources.trades_odbc]
+kind = "odbc"
+connection_string = "Driver={Some ODBC Driver};Server=host;Database=ticks;UID=reader;PWD=${ODBC_PASSWORD}"
+query = "select ts, ticker, price, qty from trades order by ts"

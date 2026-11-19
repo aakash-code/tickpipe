@@ -1,0 +1,29 @@
+# tickpipe configuration. Paths are relative to this file.
+
+[signal]
+# The strip, front contract first. Slope weights run from -1 (front) to +1 (back).
+contracts = ["FUT01", "FUT02", "FUT03", "FUT04", "FUT05", "FUT06", "FUT07", "FUT08", "FUT09", "FUT10"]
+window = "5m"
+
+# Where stored ticks live. Each stream can use a different kind of store;
+# config.examples.toml shows every kind (S3, Snowflake, QuestDB, ClickHouse,
+# PostgreSQL, SQL Server, kdb+, DuckDB and more).
+[sources.quotes]
+kind = "parquet"
+path = "data/quotes.parquet"
+
+[sources.trades]
+kind = "parquet"
+path = "data/trades.parquet"
+
+# Sockets used by replay, live and record.
+[feed]
+quotes_url = "tcp://127.0.0.1:47101"
+trades_url = "tcp://127.0.0.1:47102"
+signal_url = "tcp://127.0.0.1:47103"
+
+[run]
+out_dir = "out"
+# 0 reads each stream in one batch. A positive number streams the historical
+# run in frames of about that many rows, for data larger than memory.
+batch_rows = 0

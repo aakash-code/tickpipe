@@ -1,0 +1,44 @@
+[project]
+name = "tickpipe"
+version = "0.1.0"
+description = "One signal definition, run over stored ticks and over live streams, with tick-by-tick parity checks"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
+dependencies = [
+    "polars>=1.20",
+    "numpy>=2.0",
+    "pyzmq>=26",
+]
+
+# One extra per data source. Parquet (local, S3, GCS, Azure, HTTP) needs no extra.
+[project.optional-dependencies]
+duckdb = ["duckdb>=1.1", "pyarrow>=18"]
+sql = ["sqlalchemy>=2.0"]
+postgres = ["psycopg[binary]>=3.2"]
+questdb = ["psycopg[binary]>=3.2"]
+clickhouse = ["clickhouse-connect>=0.8", "pyarrow>=18"]
+snowflake = ["snowflake-connector-python>=3.12", "pyarrow>=18"]
+sqlserver = ["arrow-odbc>=8", "pyarrow>=18"]
+kdb = ["pykx>=3.0", "pyarrow>=18"]
+
+[project.scripts]
+tickpipe = "tickpipe.__main__:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "duckdb>=1.1",
+    "sqlalchemy>=2.0",
+    "pyarrow>=18",
+    "moto[server]>=5",
+    "boto3>=1.35",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
