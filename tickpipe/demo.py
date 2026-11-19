@@ -41,18 +41,15 @@ def run(cfg: Settings, config_path: Path, *, speed: float = 30.0) -> int:
 
     base = [sys.executable, "-m", "tickpipe", "--config", str(config_path.resolve())]
     commands = {
-        "record": [*base, "record", "--idle-timeout", "120"],
+        "record": [*base, "record-signal", "--idle-timeout", "120"],
         "live": [*base, "live", "--subscribers", "1", "--idle-timeout", "120"],
         "replay": [*base, "replay", "--speed", str(speed), "--subscribers", "1"],
     }
     pace = f"{speed:g}x real time" if speed > 0 else "no pacing"
     print(f"live: replaying the same ticks through sockets at {pace}", flush=True)
     processes = {name: subprocess.Popen(command, cwd=cfg.root) for name, command in commands.items()}
-    failed = []
     try:
-        for name in ("replay", "live", "record"):
-            if processes[name].wait(timeout=3600) != 0:
-                failed.append(name)
+        failed = [name for name in ("replay", "live", "record") if processes[name].wait(timeout=3600) != 0]
     finally:
         for process in processes.values():
             if process.poll() is None:

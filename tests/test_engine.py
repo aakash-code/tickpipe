@@ -73,7 +73,7 @@ def test_streamed_historical_run_equals_single_batch(ticks):
 
 
 def test_rows_out_of_time_order_are_rejected(ticks):
-    quotes, trades = ticks
+    _, trades = ticks
     with Pipeline() as p:
         build(p, CONTRACTS, WINDOW)
         with pytest.raises(FeedError, match="time order"):
@@ -81,7 +81,7 @@ def test_rows_out_of_time_order_are_rejected(ticks):
 
 
 def test_rows_behind_the_watermark_are_rejected(ticks):
-    quotes, trades = ticks
+    _, trades = ticks
     with Pipeline() as p:
         build(p, CONTRACTS, WINDOW)
         p.feed("trades", trades.slice(100, 50))

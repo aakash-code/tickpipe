@@ -20,7 +20,7 @@ def run(cfg: Settings) -> pl.DataFrame:
         out = build(p, cfg.contracts, cfg.window_ns).collect()
         p.run_batch(
             {
-                name: sources.read(cfg.sources[name], root=cfg.root, batch_rows=cfg.batch_rows)
+                name: sources.read(cfg.source(name), root=cfg.root, batch_rows=cfg.batch_rows)
                 for name in ("quotes", "trades")
             }
         )

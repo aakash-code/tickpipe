@@ -34,9 +34,7 @@ def run(cfg: Settings, *, speed: float = 30.0, subscribers: int = 1, step_ms: fl
     no tick is sent into the void.
     """
     urls = {"quotes": cfg.quotes_url, "trades": cfg.trades_url}
-    frames = {
-        name: sources.read_all(cfg.sources[name], root=cfg.root).select(list(SCHEMAS[name])) for name in urls
-    }
+    frames = {name: sources.read_all(cfg.source(name), root=cfg.root).select(list(SCHEMAS[name])) for name in urls}
     stamps = {name: frame["ts"].to_numpy() for name, frame in frames.items()}
     busy = [name for name in urls if frames[name].height]
 

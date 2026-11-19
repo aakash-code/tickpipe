@@ -157,9 +157,7 @@ class AsofJoin(Node):
                 rest = waiting.filter(pl.col(on) > safe)
                 self.left, self.left_first = [rest], rest[on][0]
             if self.right:
-                out = ready.join_asof(
-                    self._right(), on=on, by=self.by, strategy="backward", check_sortedness=False
-                )
+                out = ready.join_asof(self._right(), on=on, by=self.by, strategy="backward", check_sortedness=False)
             else:  # no right row has arrived yet: every match is null
                 out = pl.concat([self._empty, ready], how="diagonal")
 
@@ -228,9 +226,7 @@ class WindowAggregate(Node):
         self.key_type = pl.Enum(self.keys)
         self.window = int(window_ns)
         self.keep = list(keep) if keep is not None else schema.names()
-        self.schema = pl.Schema(
-            {**{c: schema[c] for c in self.keep}, **{ld.name: pl.Float64 for ld in self.loadings}}
-        )
+        self.schema = pl.Schema({**{c: schema[c] for c in self.keep}, **{ld.name: pl.Float64 for ld in self.loadings}})
         self._empty = pl.DataFrame(schema=self.schema)
         # Per key: running total, and the (ts, running total) of rows still inside
         # a future window. Slot 0 is a sentinel holding the total before them.
@@ -430,9 +426,7 @@ class Pipeline:
         """Run over stored ticks: one frame per stream, or an iterator of frames
         when the data is larger than memory. The stream that is furthest behind
         is always read next, which keeps the join buffers small."""
-        readers = {
-            name: iter([data] if isinstance(data, pl.DataFrame) else data) for name, data in inputs.items()
-        }
+        readers = {name: iter([data] if isinstance(data, pl.DataFrame) else data) for name, data in inputs.items()}
         unknown = set(readers) ^ set(self.sources)
         if unknown:
             raise ValueError(f"inputs and sources differ: {sorted(unknown)}")

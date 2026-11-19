@@ -52,9 +52,7 @@ def loadings(n: int) -> list[Loading]:
     ]
 
 
-def flow_signal(
-    p: Pipeline, quotes: Stream, trades: Stream, contracts: Sequence[str], window_ns: int
-) -> Stream:
+def flow_signal(p: Pipeline, quotes: Stream, trades: Stream, contracts: Sequence[str], window_ns: int) -> Stream:
     skinny = p.asof(trades, quotes, by="ticker", take=["bid", "ask"])
     rows = p.enrich(skinny, *features())
     return p.aggregate(

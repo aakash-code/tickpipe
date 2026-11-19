@@ -49,7 +49,7 @@ def generate(
         fresh = after & (q_time < shift + 120.0)  # prices drift down right after the shift
         step = rng.choice([-1, 0, 1], size=q_time.size, p=[0.1, 0.8, 0.1])
         step = np.where(fresh & (rng.uniform(size=q_time.size) < 0.12), -1, step)
-        bid_ticks = int(round((96.30 - 0.05 * i) / TICK)) + np.cumsum(step)
+        bid_ticks = round((96.30 - 0.05 * i) / TICK) + np.cumsum(step)
         spread = np.where(rng.uniform(size=q_time.size) < 0.12, 2, 1)
         bid = bid_ticks * TICK
         ask = (bid_ticks + spread) * TICK

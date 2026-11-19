@@ -8,7 +8,7 @@ import polars as pl
 import pytest
 
 from helpers import free_port, make_settings
-from tickpipe import END, Pipeline, compare, historical, live, record, replay, wire
+from tickpipe import END, Pipeline, compare, historical, live, replay, signal_recorder, wire
 from tickpipe.pipeline import FeedError
 
 
@@ -24,7 +24,7 @@ def test_replay_through_sockets_equals_historical(parquet_store, tmp_path, speed
     cfg = make_settings(parquet_store, parquet_sources(), out_dir=tmp_path)
     recorded = tmp_path / "live.parquet"
     with ThreadPoolExecutor(max_workers=3) as pool:
-        recorder = pool.submit(record.run, cfg, recorded, idle_timeout=60)
+        recorder = pool.submit(signal_recorder.run, cfg, recorded, idle_timeout=60)
         pipeline = pool.submit(live.run, cfg, subscribers=1, idle_timeout=60, quiet=True)
         feed = pool.submit(replay.run, cfg, speed=speed, subscribers=1)
         sent = feed.result(timeout=120)

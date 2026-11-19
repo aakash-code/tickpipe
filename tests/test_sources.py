@@ -139,10 +139,11 @@ def test_s3_object_store(stored, ticks):
 def duckdb_file(stored, tmp_path_factory):
     duckdb = pytest.importorskip("duckdb")
     path = tmp_path_factory.mktemp("duck") / "ticks.duckdb"
-    quotes, trades = (frame.to_arrow() for frame in stored)  # noqa: F841 (read by DuckDB by name)
     with duckdb.connect(str(path)) as connection:
-        connection.execute("create table quotes as select * from quotes")
-        connection.execute("create table trades as select * from trades")
+        for name, frame in zip(("quotes", "trades"), stored, strict=True):
+            connection.register("incoming", frame.to_arrow())
+            connection.execute(f"create table {name} as select * from incoming")
+            connection.unregister("incoming")
     return path
 
 
@@ -207,7 +208,11 @@ def test_signal_is_the_same_whichever_store_holds_the_ticks(parquet_store, duckd
             for name in ("quotes", "trades")
         },
         "mixed": {
-            "quotes": {"kind": "duckdb", "database": str(duckdb_file), "query": "select * from quotes order by ts, seq"},
+            "quotes": {
+                "kind": "duckdb",
+                "database": str(duckdb_file),
+                "query": "select * from quotes order by ts, seq",
+            },
             "trades": {"kind": "parquet", "path": str(parquet_store / "trades.parquet")},
         },
     }
@@ -263,43 +268,26 @@ def test_kdb_tables_convert(stored, ticks, monkeypatch):
 
 
 @pytest.fixture(scope="module")
-def postgres_server(stored, tmp_path_factory):
-    """A throwaway PostgreSQL cluster on a free local port, if the binaries are installed."""
-    import shutil
-    import subprocess
+def postgres_server(stored, postgres_cluster):
+    """The stored ticks loaded into the throwaway PostgreSQL cluster."""
+    import psycopg
 
-    from helpers import free_port
-
-    psycopg = pytest.importorskip("psycopg")
-    initdb, pg_ctl = shutil.which("initdb"), shutil.which("pg_ctl")
-    if not (initdb and pg_ctl):
-        pytest.skip("PostgreSQL binaries are not on PATH")
-    folder = tmp_path_factory.mktemp("postgres")
-    cluster, port = folder / "cluster", free_port()
-    quiet = {"stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
-    subprocess.run([initdb, "-D", str(cluster), "-U", "postgres", "-A", "trust", "-E", "UTF8", "--no-sync"], check=True, **quiet)
-    options = f"-p {port} -c listen_addresses=127.0.0.1"
-    subprocess.run([pg_ctl, "-D", str(cluster), "-l", str(folder / "server.log"), "-o", options, "-w", "start"], check=True, **quiet)
-    try:
-        params = {"host": "127.0.0.1", "port": port, "user": "postgres", "dbname": "postgres"}
-        quotes, trades = stored
-        with psycopg.connect(autocommit=True, **params) as connection:
-            for suffix, number in (("", "double precision"), ("_decimal", "numeric(12,4)")):
-                connection.execute(
-                    f"create table trades{suffix} (ts timestamp, ticker text, seq bigint, price {number}, qty bigint)"
-                )
-                connection.execute(
-                    f"create table quotes{suffix} (ts timestamp, ticker text, seq bigint, bid {number}, ask {number})"
-                )
-                with connection.cursor().copy(f"copy trades{suffix} from stdin") as copy:
-                    for row in trades.select(TRADE_COLUMNS).iter_rows():
-                        copy.write_row(row)
-                with connection.cursor().copy(f"copy quotes{suffix} from stdin") as copy:
-                    for row in quotes.select(QUOTE_COLUMNS).iter_rows():
-                        copy.write_row(row)
-        yield params
-    finally:
-        subprocess.run([pg_ctl, "-D", str(cluster), "-m", "immediate", "stop"], **quiet)
+    quotes, trades = stored
+    with psycopg.connect(autocommit=True, **postgres_cluster) as connection:
+        for suffix, number in (("", "double precision"), ("_decimal", "numeric(12,4)")):
+            connection.execute(
+                f"create table trades{suffix} (ts timestamp, ticker text, seq bigint, price {number}, qty bigint)"
+            )
+            connection.execute(
+                f"create table quotes{suffix} (ts timestamp, ticker text, seq bigint, bid {number}, ask {number})"
+            )
+            with connection.cursor().copy(f"copy trades{suffix} from stdin") as copy:
+                for row in trades.select(TRADE_COLUMNS).iter_rows():
+                    copy.write_row(row)
+            with connection.cursor().copy(f"copy quotes{suffix} from stdin") as copy:
+                for row in quotes.select(QUOTE_COLUMNS).iter_rows():
+                    copy.write_row(row)
+    return postgres_cluster
 
 
 @pytest.mark.parametrize("batch_rows", [0, 600])
@@ -311,7 +299,11 @@ def test_postgres(postgres_server, ticks, batch_rows):
 
 def test_signal_from_postgres_with_decimal_prices(postgres_server, ticks, tmp_path):
     spec = {
-        name: {"kind": "postgres", "connect": postgres_server, "query": f"select * from {name}_decimal order by ts, seq"}
+        name: {
+            "kind": "postgres",
+            "connect": postgres_server,
+            "query": f"select * from {name}_decimal order by ts, seq",
+        }
         for name in ("quotes", "trades")
     }
     assert historical.run(make_settings(tmp_path, spec)).equals(run_batch(*ticks))
@@ -323,7 +315,15 @@ UNREACHABLE = {
     "clickhouse": ("clickhouse_connect", {"host": "127.0.0.1", "port": 9, "connect_timeout": 2}),
     "snowflake": (
         "snowflake.connector",
-        {"account": "none", "user": "u", "password": "p", "host": "127.0.0.1", "port": 9, "protocol": "http", "login_timeout": 2},
+        {
+            "account": "none",
+            "user": "u",
+            "password": "p",
+            "host": "127.0.0.1",
+            "port": 9,
+            "protocol": "http",
+            "login_timeout": 2,
+        },
     ),
     "sqlserver": ("arrow_odbc", {"host": "127.0.0.1", "port": 9, "user": "u", "password": "p", "LoginTimeout": 2}),
     "kdb": ("pykx", {"host": "127.0.0.1", "port": 9, "timeout": 2.0}),
@@ -341,3 +341,9 @@ def test_remote_kinds_reach_their_driver(kind, monkeypatch):
     with pytest.raises(Exception) as caught:
         list(sources.read({"kind": kind, "query": "select 1", "connect": connect}))
     assert type(caught.value).__module__.split(".")[0] == module.split(".")[0], repr(caught.value)
+
+
+def test_a_query_with_no_rows_gives_an_empty_stream(sqlite_file):
+    spec = {"kind": "sqlite", "database": sqlite_file.name, "query": "select * from trades where ts < 0 order by ts"}
+    frames = list(sources.read(spec, root=sqlite_file.parent))
+    assert sum(frame.height for frame in frames) == 0 and "ts" in frames[0].columns

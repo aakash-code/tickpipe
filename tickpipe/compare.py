@@ -73,12 +73,14 @@ def text(parity: Parity, joined: pl.DataFrame) -> str:
         f"only historical    {parity.only_historical:>10,}",
         f"only live          {parity.only_live:>10,}",
     ]
-    for value in VALUES:
-        lines.append(
-            f"{value + ' differs':<18} {parity.different[value]:>10,}   max abs diff {parity.max_abs_diff[value]:g}"
-        )
+    lines.extend(
+        f"{value + ' differs':<18} {parity.different[value]:>10,}   max abs diff {parity.max_abs_diff[value]:g}"
+        for value in VALUES
+    )
     lines.append("")
-    lines.append(f"{'time':<13}{'contract':<10}{'level live':>12}{'historical':>12}{'slope live':>14}{'historical':>14}  same")
+    lines.append(
+        f"{'time':<13}{'contract':<10}{'level live':>12}{'historical':>12}{'slope live':>14}{'historical':>14}  same"
+    )
     for row in sample(joined).iter_rows(named=True):
 
         def cell(value: float | None, digits: int, width: int) -> str:

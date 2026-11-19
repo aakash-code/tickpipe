@@ -1,11 +1,11 @@
-"""Configuration: one TOML file says where ticks live and how the signal is set up."""
+"""Configuration: one TOML file says where ticks come from, where they are kept and how the signal is set up."""
 
 from __future__ import annotations
 
 import os
 import re
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +57,32 @@ class Settings:
     signal_url: str
     out_dir: Path
     batch_rows: int
+    feeds: dict[str, dict] = field(default_factory=dict)
+    stores: dict[str, dict] = field(default_factory=dict)
+    record: dict = field(default_factory=dict)
+
+    def store(self, name: str):
+        """Open the store configured under [stores.<name>]."""
+        from tickpipe.stores import open_store
+
+        if name not in self.stores:
+            raise KeyError(f"no [stores.{name}] in the config; the stores are {sorted(self.stores)}")
+        return open_store(self.stores[name], self.root)
+
+    def source(self, name: str) -> dict:
+        """The source spec of a stream. A source that names a store (`store = "ticks"`)
+        is turned into the spec that reads that store's recording, here and not at
+        load time, so a config can be loaded before anything has been recorded."""
+        if name not in self.sources:
+            raise KeyError(f"no [sources.{name}] in the config")
+        spec = self.sources[name]
+        if "store" not in spec:
+            return spec
+        from tickpipe.sources import _time_ns
+
+        start = _time_ns(spec["start"]) if spec.get("start") is not None else None
+        end = _time_ns(spec["end"]) if spec.get("end") is not None else None
+        return self.store(spec["store"]).source_spec(spec.get("stream", name), start, end)
 
 
 def load(path: str | Path = "config.toml") -> Settings:
@@ -64,21 +90,20 @@ def load(path: str | Path = "config.toml") -> Settings:
     with path.open("rb") as handle:
         raw = tomllib.load(handle)
     root = path.parent
-    signal = raw["signal"]
+    signal = raw.get("signal", {})
     feed = raw.get("feed", {})
     run = raw.get("run", {})
-    sources = raw.get("sources", {})
-    for name in ("quotes", "trades"):
-        if name not in sources:
-            raise KeyError(f"{path.name}: [sources.{name}] is missing")
     return Settings(
         root=root,
-        contracts=tuple(signal["contracts"]),
+        contracts=tuple(signal.get("contracts", ())),
         window_ns=duration_ns(signal.get("window", "5m")),
-        sources=sources,
+        sources=raw.get("sources", {}),
         quotes_url=feed.get("quotes_url", "tcp://127.0.0.1:47101"),
         trades_url=feed.get("trades_url", "tcp://127.0.0.1:47102"),
         signal_url=feed.get("signal_url", "tcp://127.0.0.1:47103"),
         out_dir=(root / run.get("out_dir", "out")).resolve(),
         batch_rows=int(run.get("batch_rows", 0)),
+        feeds=raw.get("feeds", {}),
+        stores=raw.get("stores", {}),
+        record=raw.get("record", {}),
     )

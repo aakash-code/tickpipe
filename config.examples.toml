@@ -131,3 +131,108 @@ query = "select ts, ticker, price, qty from trades order by ts"
 kind = "odbc"
 connection_string = "Driver={Some ODBC Driver};Server=host;Database=ticks;UID=reader;PWD=${ODBC_PASSWORD}"
 query = "select ts, ticker, price, qty from trades order by ts"
+
+# =====================================================================================
+# Recording live ticks
+# =====================================================================================
+#
+# A feed is where live ticks come from: one plugin per broker or data vendor.
+# A store is where recorded ticks are kept. [record] picks one of each:
+#
+#   uv run python -m tickpipe record            # until Ctrl+C
+#   uv run python -m tickpipe record --seconds 3600
+#
+# A recording is read back by naming its store as a source:
+#
+#   [sources.quotes]
+#   store = "ticks"
+#   start = "2026-11-19 03:45:00"     # optional, UTC
+#   end = "2026-11-19 10:00:00"
+
+[record]
+feed = "openalgo"
+store = "ticks"
+flush_seconds = 1          # how often buffered ticks are written
+# capacity = 65536         # ticks per stream that can wait between two flushes
+# verify = true            # read the first batch back and compare it
+
+# ---- Feeds ---------------------------------------------------------------------------
+[feeds.openalgo]
+kind = "openalgo"
+api_key = "${OPENALGO_API_KEY}"
+symbols = ["NFO:NIFTY24NOV26FUT", "NSE:RELIANCE", "NSE:SBIN"]   # EXCHANGE:SYMBOL
+# ws_url = "ws://127.0.0.1:8765"
+# modes = ["quote", "depth"]
+
+[feeds.demo]
+kind = "synthetic"                    # synthetic ticks, no account needed
+speed = 60
+
+[feeds.my_broker]
+kind = "plugins/my_broker.py:MyBrokerFeed"   # your own plugin, in a file beside this config
+api_key = "${MY_BROKER_KEY}"                 # everything in this table reaches the plugin as its config
+
+# ---- Stores --------------------------------------------------------------------------
+# Tables are created on first use. `tables = { quotes = "...", trades = "..." }`
+# renames them from the defaults tickpipe_quotes and tickpipe_trades.
+
+[stores.ticks]
+kind = "parquet"
+path = "ticks"                         # a folder; also s3://bucket/prefix with storage_options
+
+[stores.ticks_duckdb]
+kind = "duckdb"
+database = "ticks.duckdb"
+
+[stores.ticks_sqlite]
+kind = "sqlite"
+database = "ticks.sqlite"
+
+[stores.ticks_postgres]
+kind = "postgres"
+[stores.ticks_postgres.connect]
+host = "localhost"
+user = "ticks"
+password = "${PGPASSWORD}"
+dbname = "ticks"
+
+[stores.ticks_questdb]
+kind = "questdb"
+# http_url = "http://localhost:9000"   # where ticks are written; tables are created over the connect port
+[stores.ticks_questdb.connect]
+host = "localhost"
+port = 8812
+
+[stores.ticks_clickhouse]
+kind = "clickhouse"
+[stores.ticks_clickhouse.connect]
+host = "localhost"
+port = 8123
+
+[stores.ticks_sqlserver]
+kind = "sqlserver"
+[stores.ticks_sqlserver.connect]
+host = "localhost"
+database = "ticks"
+driver = "ODBC Driver 18 for SQL Server"
+TrustServerCertificate = "yes"
+
+[stores.ticks_sql]
+kind = "sql"
+url = "mysql+pymysql://ticks:${MYSQL_PASSWORD}@localhost/ticks"
+
+[stores.ticks_snowflake]
+kind = "snowflake"
+[stores.ticks_snowflake.connect]
+account = "myorg-myaccount"
+user = "writer"
+password = "${SNOWFLAKE_PASSWORD}"
+warehouse = "INGEST_WH"
+database = "TICKS"
+schema = "PUBLIC"
+
+[stores.ticks_kdb]
+kind = "kdb"
+[stores.ticks_kdb.connect]
+host = "localhost"
+port = 5010

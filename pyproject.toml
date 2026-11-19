@@ -1,19 +1,38 @@
 [project]
 name = "tickpipe"
-version = "0.1.0"
-description = "One signal definition, run over stored ticks and over live streams, with tick-by-tick parity checks"
+version = "0.2.0"
+description = "Record live ticks from any broker or data vendor, keep them in the store you already use, replay them as a market simulator, and prove a signal gives the same numbers live and in backtest"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.11"
+authors = [{ name = "marketcalls" }]
+keywords = [
+    "ticks", "market data", "tick recorder", "market replay", "simulator", "backtesting",
+    "order flow", "openalgo", "parquet", "questdb", "clickhouse", "duckdb",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+]
 dependencies = [
     "polars>=1.20",
     "numpy>=2.0",
     "pyzmq>=26",
 ]
 
-# One extra per data source. Parquet (local, S3, GCS, Azure, HTTP) needs no extra.
+# One extra per data source or feed. Parquet (local, S3, GCS, Azure, HTTP) needs no extra.
 [project.optional-dependencies]
+openalgo = ["websocket-client>=1.7"]
 duckdb = ["duckdb>=1.1", "pyarrow>=18"]
 sql = ["sqlalchemy>=2.0"]
 postgres = ["psycopg[binary]>=3.2"]
@@ -22,6 +41,12 @@ clickhouse = ["clickhouse-connect>=0.8", "pyarrow>=18"]
 snowflake = ["snowflake-connector-python>=3.12", "pyarrow>=18"]
 sqlserver = ["arrow-odbc>=8", "pyarrow>=18"]
 kdb = ["pykx>=3.0", "pyarrow>=18"]
+
+[project.urls]
+Homepage = "https://github.com/marketcalls/tickpipe"
+Repository = "https://github.com/marketcalls/tickpipe"
+Issues = "https://github.com/marketcalls/tickpipe/issues"
+Changelog = "https://github.com/marketcalls/tickpipe/blob/main/CHANGELOG.md"
 
 [project.scripts]
 tickpipe = "tickpipe.__main__:main"
@@ -34,6 +59,10 @@ dev = [
     "pyarrow>=18",
     "moto[server]>=5",
     "boto3>=1.35",
+    "websocket-client>=1.7",
+    "websockets>=13",
+    "psutil>=6",
+    "ruff>=0.8",
 ]
 
 [build-system]
@@ -42,3 +71,21 @@ build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, import order, naming, modern syntax, likely bugs, simplifications
+select = ["E", "W", "F", "I", "N", "UP", "B", "SIM", "C4", "RUF", "PERF", "BLE"]
+ignore = [
+    "E501",    # line length is the formatter's job; a few long strings stay whole
+    "SIM108",  # a plain if/else often reads better than a conditional expression
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tickpipe", "helpers"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["N802", "N806", "B011"]

@@ -62,7 +62,9 @@ def read_all(spec: dict, *, root: str | Path = ".") -> pl.DataFrame:
 # ---- shaping -----------------------------------------------------------------
 
 
-def _time_ns(value: str | datetime) -> int:
+def _time_ns(value: str | datetime | int) -> int:
+    if isinstance(value, int):
+        return value  # already nanoseconds
     moment = value if isinstance(value, datetime) else datetime.fromisoformat(str(value))
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=UTC)
@@ -108,6 +110,8 @@ def _shape(lf: pl.LazyFrame, spec: dict) -> pl.LazyFrame:
     ts = pl.col("ts")
     if isinstance(dtype, pl.Datetime):
         ts = ts.dt.epoch("ns")
+    elif dtype == pl.Null:
+        pass  # no rows came back, so the column has no type yet
     elif dtype.is_integer():
         ts = ts.cast(pl.Int64) * _TS_FACTOR[spec.get("ts_unit", "ns")]
     elif dtype == pl.String:
@@ -118,6 +122,8 @@ def _shape(lf: pl.LazyFrame, spec: dict) -> pl.LazyFrame:
             "or integer epochs together with ts_unit."
         )
     lf = lf.with_columns(ts.cast(pl.Int64).alias("ts"))
+    if isinstance(schema.get("exch_ts"), pl.Datetime):  # recorded ticks keep the feed's own time too
+        lf = lf.with_columns(pl.col("exch_ts").dt.epoch("ns"))
     if spec.get("start") is not None:
         lf = lf.filter(pl.col("ts") >= _time_ns(spec["start"]))
     if spec.get("end") is not None:
