@@ -4,7 +4,7 @@ Write a tick signal once and run that same code two ways: as a batch over stored
 ticks (research and backtests) and as a stream over live sockets (production).
 A tick-by-tick comparison then proves that both runs produce the same numbers.
 
-![Stored ticks feed a historical batch run and, through a socket replay, a live streaming run. Both pass through the same signal code, and their outputs are compared tick by tick.](docs/architecture.png)
+![Stored ticks in Parquet, Amazon S3, PostgreSQL, QuestDB, ClickHouse, SQL Server, Snowflake, kdb+, DuckDB or SQLite feed a historical batch run and, through a socket replay, a live streaming run. Both pass through the same signal code (as-of join, features, window sums), and their outputs are compared tick by tick.](docs/architecture.png)
 
 ## The problem it solves
 
@@ -270,3 +270,6 @@ Copyright 2026 the tickpipe authors.
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the
 full text. The software is provided as is, without warranties of any kind. It
 is a research tool and not investment advice.
+
+Product names and logos shown in the diagram are trademarks of their respective
+owners. They appear only to indicate which data stores tickpipe can read.
