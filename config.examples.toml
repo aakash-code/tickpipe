@@ -164,6 +164,17 @@ symbols = ["NFO:NIFTY24NOV26FUT", "NSE:RELIANCE", "NSE:SBIN"]   # EXCHANGE:SYMBO
 # ws_url = "ws://127.0.0.1:8765"
 # modes = ["quote", "depth"]
 
+[feeds.chain]
+kind = "openalgo-chain"               # an option chain around the money, chosen by OpenAlgo
+api_key = "${OPENALGO_API_KEY}"
+underlyings = ["NIFTY:NSE_INDEX", "BANKNIFTY:NSE_INDEX"]   # UNDERLYING:QUOTE_EXCHANGE
+strikes = 15                          # strikes each side of the money, calls and puts
+futures = 2                           # nearest futures per underlying; 0 for none
+# spot = true                         # also record the index itself
+# symbols = ["NSE:RELIANCE"]          # fixed extras
+# rest_url = "http://127.0.0.1:5000"
+# refresh_seconds = 60
+
 [feeds.demo]
 kind = "synthetic"                    # synthetic ticks, no account needed
 speed = 60

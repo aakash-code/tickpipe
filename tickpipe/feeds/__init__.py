@@ -49,6 +49,7 @@ from typing import Protocol
 
 BUILT_IN = {
     "openalgo": "tickpipe.feeds.openalgo:OpenAlgoFeed",
+    "openalgo-chain": "tickpipe.feeds.openalgo_chain:OpenAlgoChainFeed",
     "synthetic": "tickpipe.feeds.synthetic:SyntheticFeed",
 }
 ENTRY_POINT_GROUP = "tickpipe.feeds"

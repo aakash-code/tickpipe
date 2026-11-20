@@ -147,6 +147,24 @@ when the cumulative volume rises, with the last traded price and the rise in
 volume as its quantity. Several trades between two snapshots arrive as one row.
 The first snapshot of a symbol, and the first after a reconnect, has quantity 0.
 
+### OpenAlgo option chain
+
+Records an index option chain that follows the money, instead of a fixed list.
+It asks OpenAlgo which contracts to record and asks again every minute, so the
+strikes move with the index during the day and roll over at expiry.
+
+    [feeds.chain]
+    kind = "openalgo-chain"
+    api_key = "${OPENALGO_API_KEY}"
+    underlyings = ["NIFTY:NSE_INDEX", "BANKNIFTY:NSE_INDEX"]
+    strikes = 15                     # strikes each side of the money, calls and puts
+    futures = 2                      # nearest futures per underlying
+    rest_url = "http://127.0.0.1:5000"
+
+The strikes, their step and the expiry calendar come from OpenAlgo's
+`/api/v1/expiry` and `/api/v1/optionchain`. It records in depth mode by default,
+which carries both the quotes and the trades.
+
 ### Writing your own
 
 Subclass `Feed`, implement `start` and `stop`, and call `out.quote` and

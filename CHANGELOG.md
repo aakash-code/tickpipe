@@ -3,6 +3,26 @@
 Every release is listed here, newest first, with what changed for someone using
 tickpipe and anything that needs action when upgrading.
 
+## Unreleased
+
+### Added
+
+- **OpenAlgo option chain feed** (`kind = "openalgo-chain"`). Records the index,
+  the calls and puts within `strikes` of the money for the nearest expiry, and the
+  nearest `futures`, choosing them with OpenAlgo's own `/api/v1/expiry` and
+  `/api/v1/optionchain`. It chooses again every `refresh_seconds` and moves the
+  subscriptions as the money moves and as contracts expire. A failed refresh keeps
+  the current symbols; only the first selection must succeed. Verified against a
+  live OpenAlgo instance (Upstox, NIFTY and BANKNIFTY, 26 symbols).
+
+### Note on the `openalgo` feed
+
+- With the default `modes = ["quote", "depth"]`, the OpenAlgo proxy sends one
+  frame per tick tagged with the higher mode, so quote-mode frames do not arrive
+  and no trades are recorded (seen on a live instance: 1,460 quotes, 0 trades).
+  `modes = ["depth"]` records both. The option chain feed defaults to depth for
+  this reason; the plain `openalgo` feed is unchanged.
+
 ## 0.2.0 - 2026-11-19
 
 Recording. tickpipe can now capture live ticks itself, keep them in any store it
